@@ -69,10 +69,11 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
             return "MongoDB";
         }
 
-        @Override
-        public List<? extends ToolInstaller> getDefaultInstallers() {
-            return Collections.singletonList(new MongoDBInstaller(null));
-        }
+// TODO Support auto installer
+//        @Override
+//        public List<? extends ToolInstaller> getDefaultInstallers() {
+//            return Collections.singletonList(new MongoDBInstaller(null));
+//        }
 
         @Override
         public MongoDBInstallation[] getInstallations() {
