@@ -1,6 +1,9 @@
 package org.jenkinsci.plugins.mongodb;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_InvalidPortNumber;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_NotDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_NotEmptyDirectory;
 import hudson.CopyOnWrite;
 import hudson.Extension;
 import hudson.FilePath;
@@ -164,19 +167,20 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public static FormValidation doCheckPort(@QueryParameter String value) {
-            return isPortNumber(value) ? FormValidation.ok() : FormValidation.error("Invalid port number.");
+            return isPortNumber(value) ? FormValidation.ok() : FormValidation.error(MongoBuildWrapper_InvalidPortNumber());
         }
 
         public static FormValidation doCheckDbpath(@QueryParameter String value) {
-            if (isEmpty(value)) {
+            if (isEmpty(value))
                 return FormValidation.ok();
-            }
+
             File file = new File(value);
-            if (!file.isDirectory()) {
-                return FormValidation.error("Not a directory.");
-            } else if (file.list().length > 0) {
-                return FormValidation.warning("Not a empty directory. Before running job, the data directory is cleaned.");
-            }
+            if (!file.isDirectory())
+                return FormValidation.error(MongoBuildWrapper_NotDirectory());
+
+            if (file.list().length > 0)
+                return FormValidation.warning(MongoBuildWrapper_NotEmptyDirectory());
+
             return FormValidation.ok();
         }
 
