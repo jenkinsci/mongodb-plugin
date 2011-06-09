@@ -10,6 +10,14 @@
   <version>1.0-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <name>Jenkins MongoDB Plugin</name>
+  <url>http://wiki.jenkins-ci.org/display/JENKINS/MongoDB+Plugin</url>
+
+  <developers>
+    <developer>
+      <id>kiy0taka</id>
+      <name>Kiyotaka Oku</name>
+    </developer>
+  </developers>
 
   <dependencies>
     <dependency>
@@ -33,4 +41,10 @@
       <url>http://maven.glassfish.org/content/groups/public/</url>
     </pluginRepository>
   </pluginRepositories>
+
+  <scm>
+    <connection>scm:git:git@github.com:jenkinsci/mongodb-plugin.git</connection>
+    <developerConnection>scm:git:git@github.com:jenkinsci/mongodb-plugin.git</developerConnection>
+  </scm>
+
 </project>
