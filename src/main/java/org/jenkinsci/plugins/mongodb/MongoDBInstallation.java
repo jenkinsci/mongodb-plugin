@@ -84,6 +84,10 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
             Hudson.getInstance().getDescriptorByType(MongoBuildWrapper.DescriptorImpl.class).setInstallations(installations);
         }
 
+        public static FormValidation doCheckName(@QueryParameter String value) {
+            return FormValidation.validateRequired(value);
+        }
+
         public static FormValidation doCheckHome(@QueryParameter File value) {
             if (value.getPath() == "")
                 return FormValidation.ok();
