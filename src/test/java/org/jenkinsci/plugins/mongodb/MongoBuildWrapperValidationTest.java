@@ -1,8 +1,9 @@
 package org.jenkinsci.plugins.mongodb;
 
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
 import static org.junit.Assert.assertEquals;
-import static org.jenkinsci.plugins.mongodb.Messages.*;
-
 import hudson.util.FormValidation;
 import hudson.util.FormValidation.Kind;
 
@@ -51,10 +52,10 @@ public class MongoBuildWrapperValidationTest {
                 ok("0"),
                 ok("27017"),
                 ok("65535"),
-                error(MongoBuildWrapper_InvalidPortNumber(), "a"),
-                error(MongoBuildWrapper_InvalidPortNumber(), "-1"),
-                error(MongoBuildWrapper_InvalidPortNumber(), "65536"),
-                error(MongoBuildWrapper_InvalidPortNumber(), "100.0")
+                error(MongoDB_InvalidPortNumber(), "a"),
+                error(MongoDB_InvalidPortNumber(), "-1"),
+                error(MongoDB_InvalidPortNumber(), "65536"),
+                error(MongoDB_InvalidPortNumber(), "100.0")
             );
         }
     }
@@ -77,7 +78,7 @@ public class MongoBuildWrapperValidationTest {
             new File(file, "foo.txt").createNewFile();
             FormValidation actual = MongoBuildWrapper.DescriptorImpl.doCheckDbpath(file.getAbsolutePath());
             assertEquals(Kind.WARNING, actual.kind);
-            assertEquals(MongoBuildWrapper_NotEmptyDirectory(), actual.getMessage());
+            assertEquals(MongoDB_NotEmptyDirectory(), actual.getMessage());
         }
 
         @Test
@@ -85,7 +86,7 @@ public class MongoBuildWrapperValidationTest {
             File file = tmpFolder.newFile("foo");
             FormValidation actual = MongoBuildWrapper.DescriptorImpl.doCheckDbpath(file.getAbsolutePath());
             assertEquals(Kind.ERROR, actual.kind);
-            assertEquals(MongoBuildWrapper_NotDirectory(), actual.getMessage());
+            assertEquals(MongoDB_NotDirectory(), actual.getMessage());
         }
 
         @Test

@@ -1,9 +1,9 @@
 package org.jenkinsci.plugins.mongodb;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
-import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_InvalidPortNumber;
-import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_NotDirectory;
-import static org.jenkinsci.plugins.mongodb.Messages.MongoBuildWrapper_NotEmptyDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
 import hudson.CopyOnWrite;
 import hudson.Extension;
 import hudson.FilePath;
@@ -167,7 +167,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public static FormValidation doCheckPort(@QueryParameter String value) {
-            return isPortNumber(value) ? FormValidation.ok() : FormValidation.error(MongoBuildWrapper_InvalidPortNumber());
+            return isPortNumber(value) ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidPortNumber());
         }
 
         public static FormValidation doCheckDbpath(@QueryParameter String value) {
@@ -176,10 +176,10 @@ public class MongoBuildWrapper extends BuildWrapper {
 
             File file = new File(value);
             if (!file.isDirectory())
-                return FormValidation.error(MongoBuildWrapper_NotDirectory());
+                return FormValidation.error(MongoDB_NotDirectory());
 
             if (file.list().length > 0)
-                return FormValidation.warning(MongoBuildWrapper_NotEmptyDirectory());
+                return FormValidation.warning(MongoDB_NotEmptyDirectory());
 
             return FormValidation.ok();
         }

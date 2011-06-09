@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.mongodb;
 
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotMongoDBDirectory;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
@@ -13,6 +15,7 @@ import hudson.tools.ToolDescriptor;
 import hudson.tools.ToolInstaller;
 import hudson.tools.ToolProperty;
 import hudson.tools.ToolInstallation;
+import hudson.util.FormValidation;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
 
 public class MongoDBInstallation extends ToolInstallation implements EnvironmentSpecific<MongoDBInstallation>, NodeSpecific<MongoDBInstallation> {
 
@@ -78,6 +82,20 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         @Override
         public void setInstallations(MongoDBInstallation... installations) {
             Hudson.getInstance().getDescriptorByType(MongoBuildWrapper.DescriptorImpl.class).setInstallations(installations);
+        }
+
+        public static FormValidation doCheckHome(@QueryParameter File value) {
+            if (value.getPath() == "")
+                return FormValidation.ok();
+
+            if (!value.isDirectory())
+                return FormValidation.error(MongoDB_NotDirectory());
+
+            File mongod = new File(value, "bin/mongod");
+            if (!mongod.exists())
+                return FormValidation.error(MongoDB_NotMongoDBDirectory(value));
+
+            return FormValidation.ok();
         }
     }
 }
