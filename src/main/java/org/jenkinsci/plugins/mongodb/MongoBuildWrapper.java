@@ -18,6 +18,7 @@ import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ProcessTree;
 import hudson.util.ProcessTree.OSProcess;
+import hudson.util.ListBoxModel;
 
 import java.io.File;
 import java.io.IOException;
@@ -152,9 +153,7 @@ public class MongoBuildWrapper extends BuildWrapper {
 
         @Override
         public BuildWrapper newInstance(StaplerRequest req, JSONObject formData) throws hudson.model.Descriptor.FormException {
-            MongoBuildWrapper wrapper = new MongoBuildWrapper();
-            req.bindParameters(wrapper, "mongo.");
-            return wrapper;
+            return req.bindJSON(clazz, formData);
         }
 
         public MongoDBInstallation[] getInstallations() {
@@ -193,6 +192,14 @@ public class MongoBuildWrapper extends BuildWrapper {
                 return num >= 0 && num <= 65535;
             }
             return false;
+        }
+
+        public ListBoxModel doFillMongodbNameItems() {
+            ListBoxModel m = new ListBoxModel();
+            for (MongoDBInstallation inst : installations) {
+                m.add(inst.getName());
+            }
+            return m;
         }
     }
 }
