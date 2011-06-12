@@ -32,7 +32,7 @@ public class MongoBuildWrapperTest {
         File actualDbpath = new MongoBuildWrapper("mongo", null, null)
             .setupCmd(args, workspace, buildDir);
 
-        File expectedDbpath = new File(workspace, "mongodata");
+        File expectedDbpath = new File(workspace, "data/db");
         assertEquals(expectedDbpath, actualDbpath);
         assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s",
                 buildDir.getAbsolutePath(),
@@ -78,7 +78,7 @@ public class MongoBuildWrapperTest {
         File actualDbpath = new MongoBuildWrapper("mongo", null, "1234")
             .setupCmd(args, workspace, buildDir);
 
-        File expectedDbpath = new File(workspace, "mongodata");
+        File expectedDbpath = new File(workspace, "data/db");
         assertEquals(expectedDbpath, actualDbpath);
         assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s --port 1234",
                 buildDir.getAbsolutePath(),

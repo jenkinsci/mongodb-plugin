@@ -5,6 +5,7 @@ import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
 import hudson.CopyOnWrite;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -80,12 +81,15 @@ public class MongoBuildWrapper extends BuildWrapper {
 
     @Override
     public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+
+        EnvVars env = build.getEnvironment(listener);
+
         MongoDBInstallation mongo = getMongoDB()
             .forNode(Computer.currentComputer().getNode(), listener)
-            .forEnvironment(build.getEnvironment(listener));
+            .forEnvironment(env);
 
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
-        final File dbpathFile = setupCmd(args, new File(build.getWorkspace().getName()), build.getRootDir());
+        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")), build.getRootDir());
 
         new FilePath(dbpathFile).deleteRecursive();
         dbpathFile.mkdirs();
@@ -114,7 +118,7 @@ public class MongoBuildWrapper extends BuildWrapper {
 
         File dbpathFile;
         if (isEmpty(dbpath)) {
-            dbpathFile = new File(workspace, "mongodata");
+            dbpathFile = new File(workspace, "data/db");
         } else {
             dbpathFile = new File(dbpath);
             if (!dbpathFile.isAbsolute()) {
