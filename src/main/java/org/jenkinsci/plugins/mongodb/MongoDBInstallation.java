@@ -4,9 +4,11 @@ import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotMongoDBDirectory;
 import hudson.EnvVars;
 import hudson.Extension;
+import hudson.Functions;
 import hudson.Launcher;
 import hudson.model.EnvironmentSpecific;
 import hudson.model.TaskListener;
+import hudson.model.Computer;
 import hudson.model.Hudson;
 import hudson.model.Node;
 import hudson.remoting.Callable;
@@ -40,25 +42,29 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         return new MongoDBInstallation(getName(), environment.expand(getHome()), getProperties().toList());
     }
 
-    public File getExecutable(Launcher launcher) throws IOException, InterruptedException {
-        return launcher.getChannel().call(new Callable<File, IOException>() {
-            public File call() throws IOException {
+    public String getExecutable(final Launcher launcher) throws IOException, InterruptedException {
+        return launcher.getChannel().call(new Callable<String, IOException>() {
+            public String call() throws IOException {
                 File homeDir = new File(getHome());
-                File r = new File(homeDir, "bin/mongod");
-                return r.exists() ? r : findExecutable(homeDir);
+                File r = new File(homeDir, getExeFile());
+                return (r.exists() ? r : findExecutable(homeDir)).getPath();
             }
         });
     }
 
     protected File findExecutable(File parent) {
         for (File child : parent.listFiles()) {
-            if (child.isFile() && child.getName().equals("mongod")) {
+            if (child.isFile() && (parent.getName() + "/" + child.getName()).equals(getExeFile())) {
                 return child;
             } else if (child.isDirectory()) {
                 return findExecutable(child);
             }
         }
         return null;
+    }
+
+    protected String getExeFile() {
+        return Functions.isWindows() ? "bin/mongod.exe" : "bin/mongod";
     }
 
     @Extension
