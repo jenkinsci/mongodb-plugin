@@ -13,6 +13,7 @@ import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
+import hudson.remoting.Callable;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
@@ -89,10 +90,13 @@ public class MongoBuildWrapper extends BuildWrapper {
             .forEnvironment(env);
 
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
-        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")), build.getRootDir());
+        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")));
 
-        new FilePath(dbpathFile).deleteRecursive();
-        dbpathFile.mkdirs();
+        try {
+            launcher.getChannel().call(new DbpathCleaner(dbpathFile));
+        } catch (Exception e) {
+            e.printStackTrace(listener.getLogger());
+        }
 
         launcher.launch().cmds(args).join();
 
@@ -112,9 +116,9 @@ public class MongoBuildWrapper extends BuildWrapper {
         };
     }
 
-    protected File setupCmd(ArgumentListBuilder args, File workspace, File buildDir) {
+    protected File setupCmd(ArgumentListBuilder args, File workspace) {
 
-        args.add("--fork").add("--logpath").add(new File(buildDir, "mongodb.log"));
+        args.add("--fork").add("--logpath").add(new File(workspace, "mongodb.log").getPath());
 
         File dbpathFile;
         if (isEmpty(dbpath)) {
@@ -125,13 +129,28 @@ public class MongoBuildWrapper extends BuildWrapper {
                 dbpathFile = new File(workspace, dbpath);
             }
         }
-        args.add("--dbpath").add(dbpathFile);
+        args.add("--dbpath").add(dbpathFile.getPath());
 
         if (StringUtils.isNotEmpty(port)) {
             args.add("--port", port);
         }
 
         return dbpathFile;
+    }
+
+    private static class DbpathCleaner implements Callable<Void, Exception> {
+
+        private File file;
+
+        public DbpathCleaner(File file) {
+            this.file = file;
+        }
+
+        public Void call() throws Exception {
+            new FilePath(file).deleteRecursive();
+            file.mkdirs();
+            return null;
+        }
     }
 
     @Extension
