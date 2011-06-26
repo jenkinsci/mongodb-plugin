@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -96,7 +97,7 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         }
 
         public static FormValidation doCheckHome(@QueryParameter File value) {
-            if (value.getPath() == "")
+            if (StringUtils.isEmpty(value.getPath()))
                 return FormValidation.ok();
 
             if (!value.isDirectory())
