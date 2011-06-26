@@ -28,7 +28,7 @@ public class MongoBuildWrapperTest {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         File actualDbpath = new MongoBuildWrapper("mongo", null, null)
-            .setupCmd(args, workspace);
+            .setupCmd(args, workspace, true);
 
         File expectedDbpath = new File(workspace, "data/db");
         assertEquals(expectedDbpath, actualDbpath);
@@ -43,7 +43,7 @@ public class MongoBuildWrapperTest {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         File actualDbpath = new MongoBuildWrapper("mongo", "data_dir", null)
-            .setupCmd(args, workspace);
+            .setupCmd(args, workspace, true);
 
         File expectedDbpath = new File(workspace, "data_dir");
         assertEquals(expectedDbpath, actualDbpath);
@@ -60,7 +60,7 @@ public class MongoBuildWrapperTest {
 
         String absolutePath = new File(tempFolder.getRoot(), "foo/bar/data_dir").getAbsolutePath();
         File actualDbpath = new MongoBuildWrapper("mongo", absolutePath, null)
-            .setupCmd(args, workspace);
+            .setupCmd(args, workspace, true);
 
         assertEquals(new File(absolutePath), actualDbpath);
         assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s",
@@ -74,7 +74,7 @@ public class MongoBuildWrapperTest {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
         File actualDbpath = new MongoBuildWrapper("mongo", null, "1234")
-            .setupCmd(args, workspace);
+            .setupCmd(args, workspace, true);
 
         File expectedDbpath = new File(workspace, "data/db");
         assertEquals(expectedDbpath, actualDbpath);
@@ -84,4 +84,18 @@ public class MongoBuildWrapperTest {
             args.toStringWithQuote());
     }
 
+    @Test
+    public void setupCmd_without_fork() {
+
+        ArgumentListBuilder args = new ArgumentListBuilder();
+        File actualDbpath = new MongoBuildWrapper("mongo", null, null)
+            .setupCmd(args, workspace, false);
+
+        File expectedDbpath = new File(workspace, "data/db");
+        assertEquals(expectedDbpath, actualDbpath);
+        assertEquals(format("--logpath %s/mongodb.log --dbpath %s",
+                workspace.getAbsolutePath(),
+                expectedDbpath.getAbsolutePath()),
+            args.toStringWithQuote());
+    } 
 }

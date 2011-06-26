@@ -9,6 +9,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.Proc;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
@@ -18,12 +19,14 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
-import hudson.util.ProcessTree;
-import hudson.util.ProcessTree.OSProcess;
 import hudson.util.ListBoxModel;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 import net.sf.json.JSONObject;
 
@@ -81,7 +84,7 @@ public class MongoBuildWrapper extends BuildWrapper {
     }
 
     @Override
-    public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+    public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         EnvVars env = build.getEnvironment(listener);
 
@@ -90,39 +93,46 @@ public class MongoBuildWrapper extends BuildWrapper {
             .forEnvironment(env);
 
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
-        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")));
+        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")), false);
 
         try {
-            launcher.getChannel().call(new DbpathCleaner(dbpathFile));
+            launcher.getChannel().call(new DbpathCleanCommand(dbpathFile));
         } catch (Exception e) {
             e.printStackTrace(listener.getLogger());
         }
+        return launch(dbpathFile, launcher, args, listener);
+    }
 
-        launcher.launch().cmds(args).join();
+    protected Environment launch(final File dbpathFile, final Launcher launcher, ArgumentListBuilder args, final BuildListener listener) throws IOException, InterruptedException {
+        final Proc proc = launcher.launch().cmds(args).start();
+
+        try {
+            launcher.getChannel().call(new WaitForStartCommand(listener, port));
+        } catch (Exception e) {
+            e.printStackTrace(listener.getLogger());
+            return null;
+        }
 
         return new BuildWrapper.Environment() {
             @Override
             public boolean tearDown(AbstractBuild build, BuildListener listener)
                     throws IOException, InterruptedException {
-                String pid = new FilePath(new File(dbpathFile, "mongod.lock")).readToString().trim();
-                if (StringUtils.isNotEmpty(pid)) {
-                    OSProcess proc = ProcessTree.get().get(Integer.parseInt(pid));
-                    if (proc != null) {
-                        proc.kill();
-                    }
+                if (proc.isAlive()) {
+                    proc.kill();
                 }
                 return super.tearDown(build, listener);
             }
         };
     }
 
-    protected File setupCmd(ArgumentListBuilder args, File workspace) {
+    protected File setupCmd(ArgumentListBuilder args, File workspace, boolean fork) {
 
-        args.add("--fork").add("--logpath").add(new File(workspace, "mongodb.log").getPath());
+        if (fork) args.add("--fork");
+        args.add("--logpath").add(new File(workspace, "mongodb.log").getPath());
 
         File dbpathFile;
         if (isEmpty(dbpath)) {
-            dbpathFile = new File(workspace, "data/db");
+            dbpathFile = new File(workspace, "/data/db");
         } else {
             dbpathFile = new File(dbpath);
             if (!dbpathFile.isAbsolute()) {
@@ -138,11 +148,62 @@ public class MongoBuildWrapper extends BuildWrapper {
         return dbpathFile;
     }
 
-    private static class DbpathCleaner implements Callable<Void, Exception> {
+    private static class WaitForStartCommand implements Callable<Boolean, Exception> {
+
+        private static final int MAX_RETRY = 5;
+
+        private int retryCount;
+
+        private BuildListener listener;
+
+        private String port;
+
+        public WaitForStartCommand(BuildListener listener, String port) {
+            this.listener = listener;
+            this.port = StringUtils.defaultIfEmpty(port, "27017");
+        }
+
+        public Boolean call() throws Exception {
+            return waitForStart();
+        }
+
+        protected boolean waitForStart() throws Exception {
+            listener.getLogger().println("[MongoDB] Starting...");
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
+                if (conn.getResponseCode() == 200) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (MalformedURLException e) {
+                throw e;
+            } catch (ConnectException e) {
+                try {
+                    if (++retryCount <= MAX_RETRY) {
+                        Thread.sleep(3000);
+                        return waitForStart();
+                    } else {
+                        return false;
+                    }
+                } catch (InterruptedException e1) {
+                    throw e;
+                }
+            } catch (IOException e) {
+                throw e;
+            } finally {
+                if (conn != null)
+                    conn.disconnect();
+            }
+        }
+    }
+
+    private static class DbpathCleanCommand implements Callable<Void, Exception> {
 
         private File file;
 
-        public DbpathCleaner(File file) {
+        public DbpathCleanCommand(File file) {
             this.file = file;
         }
 
