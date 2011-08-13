@@ -8,7 +8,6 @@ import hudson.Functions;
 import hudson.Launcher;
 import hudson.model.EnvironmentSpecific;
 import hudson.model.TaskListener;
-import hudson.model.Computer;
 import hudson.model.Hudson;
 import hudson.model.Node;
 import hudson.remoting.Callable;
