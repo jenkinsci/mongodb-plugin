@@ -62,7 +62,6 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
 
     protected File findExecutable(File parent) {
         for (File child : parent.listFiles()) {
-            System.out.println(child.getPath());
             if (child.isFile() && (parent.getName() + "/" + child.getName()).equals(getExeFile())) {
                 return child;
             } else if (child.isDirectory()) {
