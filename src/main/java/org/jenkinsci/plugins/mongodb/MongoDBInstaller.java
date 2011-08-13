@@ -13,8 +13,7 @@ public class MongoDBInstaller extends DownloadFromUrlInstaller {
         super(id);
     }
 
-// TODO Support auto installer
-//    @Extension
+    @Extension
     public static final class DescriptorImpl extends DownloadFromUrlInstaller.DescriptorImpl<MongoDBInstaller> {
         public String getDisplayName() {
             return "Install from mongodb.org";

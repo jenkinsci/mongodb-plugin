@@ -20,6 +20,7 @@ import hudson.tools.ToolInstallation;
 import hudson.util.FormValidation;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -47,18 +48,29 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         return launcher.getChannel().call(new Callable<String, IOException>() {
             public String call() throws IOException {
                 File homeDir = new File(getHome());
+                if (!(homeDir.exists() && homeDir.isDirectory())) {
+                    throw new FileNotFoundException(String.format("No such directory. [%s]", homeDir));
+                }
                 File r = new File(homeDir, getExeFile());
-                return (r.exists() ? r : findExecutable(homeDir)).getPath();
+                File executable = r.exists() ? r : findExecutable(homeDir);
+                if (executable == null) {
+                    throw new FileNotFoundException(String.format("[%s] is not MongoDB home directory.", homeDir));
+                }
+                return executable.getPath();
             }
         });
     }
 
     protected File findExecutable(File parent) {
         for (File child : parent.listFiles()) {
+            System.out.println(child.getPath());
             if (child.isFile() && (parent.getName() + "/" + child.getName()).equals(getExeFile())) {
                 return child;
             } else if (child.isDirectory()) {
-                return findExecutable(child);
+                File r = findExecutable(child);
+                if (r != null) {
+                    return findExecutable(child);
+                }
             }
         }
         return null;
@@ -76,11 +88,10 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
             return "MongoDB";
         }
 
-// TODO Support auto installer
-//        @Override
-//        public List<? extends ToolInstaller> getDefaultInstallers() {
-//            return Collections.singletonList(new MongoDBInstaller(null));
-//        }
+        @Override
+        public List<? extends ToolInstaller> getDefaultInstallers() {
+            return Collections.singletonList(new MongoDBInstaller(null));
+        }
 
         @Override
         public MongoDBInstallation[] getInstallations() {
