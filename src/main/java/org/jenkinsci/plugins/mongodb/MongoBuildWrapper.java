@@ -104,13 +104,13 @@ public class MongoBuildWrapper extends BuildWrapper {
 
     protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener) throws IOException, InterruptedException {
         ProcStarter procStarter = launcher.launch().cmds(args);
-        listener.getLogger().println("Executing mongodb start command: "+procStarter.cmds());
+        log(listener, "Executing mongodb start command: "+procStarter.cmds());
 		final Proc proc = procStarter.start();
 
         try {
             Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port));
             if(!startResult) {
-            	listener.getLogger().println("ERROR: Filed to start mongodb");
+                log(listener, "ERROR: Filed to start mongodb");
             }
         } catch (Exception e) {
             e.printStackTrace(listener.getLogger());
@@ -122,10 +122,10 @@ public class MongoBuildWrapper extends BuildWrapper {
             public boolean tearDown(AbstractBuild build, BuildListener listener)
                     throws IOException, InterruptedException {
                 if (proc.isAlive()) {
-                	listener.getLogger().println("Killing mongodb process...");
+                    log(listener, "Killing mongodb process...");
                     proc.kill();
                 } else {
-                	listener.getLogger().println("Will not kill mongodb process as it is already dead.");
+                    log(listener, "Will not kill mongodb process as it is already dead.");
                 }
                 return super.tearDown(build, listener);
             }
@@ -165,6 +165,10 @@ public class MongoBuildWrapper extends BuildWrapper {
         return dbpathFile;
     }
 
+    private static void log(BuildListener listener, String log) {
+        listener.getLogger().println(String.format("[MongoDB] %s", log));
+    }
+
     private static class WaitForStartCommand implements Callable<Boolean, Exception> {
 
         private static final int MAX_RETRY = 5;
@@ -185,12 +189,12 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         protected boolean waitForStart() throws Exception {
-            listener.getLogger().println("[MongoDB] Starting...");
+            log(listener, "Starting...");
             HttpURLConnection conn = null;
             try {
                 conn = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
                 if (conn.getResponseCode() == 200) {
-                	listener.getLogger().println("MongoDB running at:"+new URL("http://localhost:" + port).toString());
+                    log(listener, "MongoDB running at:"+new URL("http://localhost:" + port).toString());
                     return true;
                 } else {
                     return false;
