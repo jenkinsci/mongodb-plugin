@@ -8,13 +8,16 @@ import hudson.CopyOnWrite;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.FilePath.FileCallable;
 import hudson.Launcher;
+import hudson.Launcher.ProcStarter;
 import hudson.Proc;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
 import hudson.remoting.Callable;
+import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
@@ -91,23 +94,24 @@ public class MongoBuildWrapper extends BuildWrapper {
         MongoDBInstallation mongo = getMongoDB()
             .forNode(Computer.currentComputer().getNode(), listener)
             .forEnvironment(env);
-
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
-        final File dbpathFile = setupCmd(args, new File(env.get("WORKSPACE")), false);
+        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false);
 
-        try {
-            launcher.getChannel().call(new DbpathCleanCommand(dbpathFile));
-        } catch (Exception e) {
-            e.printStackTrace(listener.getLogger());
-        }
-        return launch(dbpathFile, launcher, args, listener);
+    	dbpathFile.deleteRecursive();
+    	dbpathFile.mkdirs();
+        return launch(launcher, args, listener);
     }
 
-    protected Environment launch(final File dbpathFile, final Launcher launcher, ArgumentListBuilder args, final BuildListener listener) throws IOException, InterruptedException {
-        final Proc proc = launcher.launch().cmds(args).start();
+    protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener) throws IOException, InterruptedException {
+        ProcStarter procStarter = launcher.launch().cmds(args);
+        listener.getLogger().println("Executing mongodb start command: "+procStarter.cmds());
+		final Proc proc = procStarter.start();
 
         try {
-            launcher.getChannel().call(new WaitForStartCommand(listener, port));
+            Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port));
+            if(!startResult) {
+            	listener.getLogger().println("ERROR: Filed to start mongodb");
+            }
         } catch (Exception e) {
             e.printStackTrace(listener.getLogger());
             return null;
@@ -118,28 +122,41 @@ public class MongoBuildWrapper extends BuildWrapper {
             public boolean tearDown(AbstractBuild build, BuildListener listener)
                     throws IOException, InterruptedException {
                 if (proc.isAlive()) {
+                	listener.getLogger().println("Killing mongodb process...");
                     proc.kill();
+                } else {
+                	listener.getLogger().println("Will not kill mongodb process as it is already dead.");
                 }
                 return super.tearDown(build, listener);
             }
         };
     }
 
-    protected File setupCmd(ArgumentListBuilder args, File workspace, boolean fork) {
+    protected FilePath setupCmd(Launcher launcher, ArgumentListBuilder args, FilePath workspace, boolean fork) throws IOException, InterruptedException {
 
-        if (fork) args.add("--fork");
-        args.add("--logpath").add(new File(workspace, "mongodb.log").getPath());
+        if (fork) {
+        	args.add("--fork");
+        }
+        args.add("--logpath").add(workspace.child("mongodb.log").getRemote());
 
-        File dbpathFile;
+        FilePath dbpathFile;
         if (isEmpty(dbpath)) {
-            dbpathFile = new File(workspace, "/data/db");
+            dbpathFile = workspace.child("data").child("db");
         } else {
-            dbpathFile = new File(dbpath);
-            if (!dbpathFile.isAbsolute()) {
-                dbpathFile = new File(workspace, dbpath);
+            dbpathFile = new FilePath(launcher.getChannel(),dbpath);
+            boolean isAbsolute = dbpathFile.act(new FileCallable<Boolean>() {
+
+				public Boolean invoke(File f, VirtualChannel channel){
+					return f.isAbsolute();
+				}
+			});
+            
+            if (!isAbsolute) {
+                dbpathFile = workspace.child(dbpath);
             }
         }
-        args.add("--dbpath").add(dbpathFile.getPath());
+        
+        args.add("--dbpath").add(dbpathFile.getRemote());
 
         if (StringUtils.isNotEmpty(port)) {
             args.add("--port", port);
@@ -173,6 +190,7 @@ public class MongoBuildWrapper extends BuildWrapper {
             try {
                 conn = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
                 if (conn.getResponseCode() == 200) {
+                	listener.getLogger().println("MongoDB running at:"+new URL("http://localhost:" + port).toString());
                     return true;
                 } else {
                     return false;
@@ -196,21 +214,6 @@ public class MongoBuildWrapper extends BuildWrapper {
                 if (conn != null)
                     conn.disconnect();
             }
-        }
-    }
-
-    private static class DbpathCleanCommand implements Callable<Void, Exception> {
-
-        private File file;
-
-        public DbpathCleanCommand(File file) {
-            this.file = file;
-        }
-
-        public Void call() throws Exception {
-            new FilePath(file).deleteRecursive();
-            file.mkdirs();
-            return null;
         }
     }
 
