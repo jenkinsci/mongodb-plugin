@@ -2,100 +2,124 @@ package org.jenkinsci.plugins.mongodb;
 
 import static java.lang.String.format;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.remoting.Callable;
+import hudson.remoting.VirtualChannel;
 import hudson.util.ArgumentListBuilder;
-
-import java.io.File;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.jvnet.hudson.test.For;
+import org.mockito.Mockito;
 
+@SuppressWarnings({ "unchecked", "rawtypes" })
+@For(MongoBuildWrapper.class)
 public class MongoBuildWrapperTest {
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
-    private File workspace;
+    private FilePath workspace;
+
+	private Launcher mockLauncher;
+
+	private VirtualChannel mockChannel;
 
     @Before
     public void init() {
-        workspace = tempFolder.newFolder("workspace");
+        workspace = new FilePath(tempFolder.newFolder("workspace"));
+        mockLauncher = mock(Launcher.class);
+        mockChannel = mock(VirtualChannel.class);
+        when(mockLauncher.getChannel()).thenReturn(mockChannel);
     }
 
     @Test
-    public void setupCmd_with_defaults() {
+    public void setupCmd_with_defaults() throws Exception {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
-        File actualDbpath = new MongoBuildWrapper("mongo", null, null)
-            .setupCmd(args, workspace, true);
 
-        File expectedDbpath = new File(workspace, "data/db");
+        FilePath actualDbpath = new MongoBuildWrapper("mongo", null, null)
+            .setupCmd(mockLauncher,args, workspace, true);
+        
+        FilePath expectedDbpath = workspace.child("data").child("db");
+        
         assertEquals(expectedDbpath, actualDbpath);
-        assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s",
-                workspace.getAbsolutePath(),
-                expectedDbpath.getAbsolutePath()),
+        assertEquals(format("--fork --logpath %s --dbpath %s",
+        		workspace.child("mongodb.log").getRemote(),
+                expectedDbpath.getRemote()),
             args.toStringWithQuote());
     }
 
-    @Test
-    public void setupCmd_with_dbpath() {
+    
+	@Test
+    public void setupCmd_with_dbpath() throws Throwable {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
-        File actualDbpath = new MongoBuildWrapper("mongo", "data_dir", null)
-            .setupCmd(args, workspace, true);
+        when(mockChannel.call((Callable) Mockito.any())).thenReturn(Boolean.FALSE);
+        
+        FilePath actualDbpath = new MongoBuildWrapper("mongo", "data_dir", null)
+            .setupCmd(mockLauncher,args, workspace, true);
 
-        File expectedDbpath = new File(workspace, "data_dir");
+        FilePath expectedDbpath = workspace.child("data_dir");
+        FilePath expectedLogpath = workspace.child("mongodb.log");
         assertEquals(expectedDbpath, actualDbpath);
-        assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s",
-                workspace.getAbsolutePath(),
-                expectedDbpath.getAbsolutePath()),
+        assertEquals(format("--fork --logpath %s --dbpath %s",
+        		expectedLogpath.getRemote(),
+                expectedDbpath.getRemote()),
             args.toStringWithQuote());
     }
 
     @Test
-    public void setupCmd_with_abusolute_dbpath() {
+    public void setupCmd_with_abusolute_dbpath() throws Throwable {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
+        when(mockChannel.call((Callable) Mockito.any())).thenReturn(Boolean.TRUE);
+        
+        FilePath absolutePath = new FilePath(tempFolder.getRoot()).child("foo").child("bar").child("data_dir");
+        FilePath actualDbpath = new MongoBuildWrapper("mongo", absolutePath.getRemote(), null)
+            .setupCmd(mockLauncher,args, workspace, true);
 
-        String absolutePath = new File(tempFolder.getRoot(), "foo/bar/data_dir").getAbsolutePath();
-        File actualDbpath = new MongoBuildWrapper("mongo", absolutePath, null)
-            .setupCmd(args, workspace, true);
-
-        assertEquals(new File(absolutePath), actualDbpath);
-        assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s",
-                workspace.getAbsolutePath(),
-                absolutePath),
+        assertEquals(absolutePath.getRemote(), actualDbpath.getRemote());
+        
+        assertEquals(format("--fork --logpath %s --dbpath %s",
+        		workspace.child("mongodb.log").getRemote(),
+        		absolutePath.getRemote()),
             args.toStringWithQuote());
     }
 
     @Test
-    public void setupCmd_with_port() {
+    public void setupCmd_with_port() throws Exception {
 
         ArgumentListBuilder args = new ArgumentListBuilder();
-        File actualDbpath = new MongoBuildWrapper("mongo", null, "1234")
-            .setupCmd(args, workspace, true);
+        FilePath actualDbpath = new MongoBuildWrapper("mongo", null, "1234").setupCmd(mockLauncher,args, workspace, true);
 
-        File expectedDbpath = new File(workspace, "data/db");
-        assertEquals(expectedDbpath, actualDbpath);
-        assertEquals(format("--fork --logpath %s/mongodb.log --dbpath %s --port 1234",
-                workspace.getAbsolutePath(),
-                expectedDbpath.getAbsolutePath()),
+        FilePath expectedDbpath = workspace.child("data").child("db");
+        assertEquals(expectedDbpath.getRemote(), actualDbpath.getRemote());
+        
+        assertEquals(format("--fork --logpath %s --dbpath %s --port 1234",
+        		workspace.child("mongodb.log").getRemote(),
+                expectedDbpath.getRemote()),
             args.toStringWithQuote());
     }
 
     @Test
-    public void setupCmd_without_fork() {
+    public void setupCmd_without_fork() throws Exception{
 
-        ArgumentListBuilder args = new ArgumentListBuilder();
-        File actualDbpath = new MongoBuildWrapper("mongo", null, null)
-            .setupCmd(args, workspace, false);
+    	ArgumentListBuilder args = new ArgumentListBuilder();
+        FilePath actualDbpath = new MongoBuildWrapper("mongo", null, "1234").setupCmd(mockLauncher,args, workspace, false);
 
-        File expectedDbpath = new File(workspace, "data/db");
-        assertEquals(expectedDbpath, actualDbpath);
-        assertEquals(format("--logpath %s/mongodb.log --dbpath %s",
-                workspace.getAbsolutePath(),
-                expectedDbpath.getAbsolutePath()),
+        FilePath expectedDbpath = workspace.child("data").child("db");
+        assertEquals(expectedDbpath.getRemote(), actualDbpath.getRemote());
+        
+        assertEquals(format("--logpath %s --dbpath %s --port 1234",
+        		workspace.child("mongodb.log").getRemote(),
+                expectedDbpath.getRemote()),
             args.toStringWithQuote());
-    } 
+    }
+
 }
