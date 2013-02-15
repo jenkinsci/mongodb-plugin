@@ -130,17 +130,8 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         }
 
 
-		public static FormValidation doCheckName(@QueryParameter String value) {
-			if(isEmpty(value)) {
-        		return FormValidation.ok();
-        	}
-        	
-        	try {
-        		int timeout = Integer.parseInt(value);
-        		return timeout>0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
-        	} catch (NumberFormatException e) {
-        		return FormValidation.error(MongoDB_InvalidStartTimeout());
-        	}
+        public static FormValidation doCheckName(@QueryParameter String value) {
+            return FormValidation.validateRequired(value);
         }
 		
 		public static FormValidation doCheckStartTimeout(@QueryParameter String value) {
