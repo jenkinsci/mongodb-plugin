@@ -1,9 +1,11 @@
 package org.jenkinsci.plugins.mongodb;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
+import static org.apache.commons.lang.StringUtils.isNotEmpty;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout;
 import hudson.CopyOnWrite;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -34,6 +36,7 @@ import java.net.URL;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -43,14 +46,18 @@ public class MongoBuildWrapper extends BuildWrapper {
     private String mongodbName;
     private String dbpath;
     private String port;
+	private String parameters;
+	private int startTimeout;
 
     public MongoBuildWrapper() {}
 
     @DataBoundConstructor
-    public MongoBuildWrapper(String mongodbName, String dbpath, String port) {
+    public MongoBuildWrapper(String mongodbName, String dbpath, String port, String parameters, int startTimeout) {
         this.mongodbName = mongodbName;
         this.dbpath = dbpath;
         this.port = port;
+		this.startTimeout = startTimeout;
+		this.parameters = parameters;
     }
 
     public MongoDBInstallation getMongoDB() {
@@ -86,7 +93,27 @@ public class MongoBuildWrapper extends BuildWrapper {
         this.port = port;
     }
 
-    @Override
+    public String getParameters() {
+		return parameters;
+	}
+
+	public void setParameters(String parameters) {
+		this.parameters = parameters;
+	}
+
+	/**
+	 * The time (in milliseconds) to wait for mongodb to start
+	 * @return time in milliseconds
+	 */
+	public int getStartTimeout() {
+		return startTimeout;
+	}
+
+	public void setStartTimeout(int startTimeout) {
+		this.startTimeout = startTimeout;
+	}
+
+	@Override
     public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         EnvVars env = build.getEnvironment(listener);
@@ -95,20 +122,28 @@ public class MongoBuildWrapper extends BuildWrapper {
             .forNode(Computer.currentComputer().getNode(), listener)
             .forEnvironment(env);
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
-        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false);
+        String globalParameters = mongo.getParameters();
+        int globalStartTimeout = mongo.getStartTimeout();
+        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false, globalParameters);
 
     	dbpathFile.deleteRecursive();
     	dbpathFile.mkdirs();
-        return launch(launcher, args, listener);
+        return launch(launcher, args, listener, globalStartTimeout);
     }
 
-    protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener) throws IOException, InterruptedException {
+    protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener, int globalStartTimeout) throws IOException, InterruptedException {
         ProcStarter procStarter = launcher.launch().cmds(args);
         log(listener, "Executing mongodb start command: "+procStarter.cmds());
 		final Proc proc = procStarter.start();
 
         try {
-            Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port));
+        	
+        	int effectiveTimeout = globalStartTimeout;
+        	if(startTimeout>0) {
+        		effectiveTimeout = startTimeout;
+        	}
+        	
+            Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port, effectiveTimeout));
             if(!startResult) {
                 log(listener, "ERROR: Filed to start mongodb");
             }
@@ -132,7 +167,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         };
     }
 
-    protected FilePath setupCmd(Launcher launcher, ArgumentListBuilder args, FilePath workspace, boolean fork) throws IOException, InterruptedException {
+    protected FilePath setupCmd(Launcher launcher, ArgumentListBuilder args, FilePath workspace, boolean fork, String globalParameters) throws IOException, InterruptedException {
 
         if (fork) {
         	args.add("--fork");
@@ -144,13 +179,7 @@ public class MongoBuildWrapper extends BuildWrapper {
             dbpathFile = workspace.child("data").child("db");
         } else {
             dbpathFile = new FilePath(launcher.getChannel(),dbpath);
-            boolean isAbsolute = dbpathFile.act(new FileCallable<Boolean>() {
-
-				public Boolean invoke(File f, VirtualChannel channel){
-					return f.isAbsolute();
-				}
-			});
-            
+            boolean isAbsolute = dbpathFile.act(new IsAbsoluteCheck());
             if (!isAbsolute) {
                 dbpathFile = workspace.child(dbpath);
             }
@@ -160,6 +189,30 @@ public class MongoBuildWrapper extends BuildWrapper {
 
         if (StringUtils.isNotEmpty(port)) {
             args.add("--port", port);
+        }
+        String effectiveParameters = globalParameters;
+        if (StringUtils.isNotEmpty(parameters)) {
+        	effectiveParameters = parameters;
+        }
+        
+        if (StringUtils.isNotEmpty(effectiveParameters)) {
+        	for (String parameter : effectiveParameters.split("--")) {
+        		
+        		if(parameter.trim().indexOf(" ")!=-1) {
+        			//The parameter is a name value pair e.g. --syncdelay 0
+        			// The construction is done this way so the case where the value is in quotes and possibly contains space chars is properly handled 
+        			String parameterName = parameter.trim().substring(0, parameter.trim().indexOf(" ")).trim();
+        			String parameterValue = parameter.trim().substring(parameter.trim().indexOf(" ")).trim();
+        			if(StringUtils.isNotEmpty(parameterName)) {
+        				args.add("--"+parameterName, parameterValue);
+        			}
+        		} else {
+        			//No value parameter e.g. --noprealloc
+        			if(StringUtils.isNotEmpty(parameter.trim())) {
+        				args.add("--"+parameter.trim());
+        			}
+        		}
+			}
         }
 
         return dbpathFile;
@@ -171,20 +224,26 @@ public class MongoBuildWrapper extends BuildWrapper {
 
     private static class WaitForStartCommand implements Callable<Boolean, Exception> {
 
-        private static final int MAX_RETRY = 5;
-
-        private int retryCount;
-
         private BuildListener listener;
 
         private String port;
 
-        public WaitForStartCommand(BuildListener listener, String port) {
+		private int startTimeout;
+
+		private long waitStart;
+
+        public WaitForStartCommand(BuildListener listener, String port, int startTimeout) {
             this.listener = listener;
             this.port = StringUtils.defaultIfEmpty(port, "27017");
+            if(startTimeout == 0) {
+            	this.startTimeout = 15000;
+            } else {
+            	this.startTimeout = startTimeout;
+            }
         }
 
         public Boolean call() throws Exception {
+        	waitStart = System.currentTimeMillis();
             return waitForStart();
         }
 
@@ -203,8 +262,8 @@ public class MongoBuildWrapper extends BuildWrapper {
                 throw e;
             } catch (ConnectException e) {
                 try {
-                    if (++retryCount <= MAX_RETRY) {
-                        Thread.sleep(3000);
+                    if (startTimeout>=System.currentTimeMillis()-waitStart) {
+                        Thread.sleep(1000);
                         return waitForStart();
                     } else {
                         return false;
@@ -256,6 +315,19 @@ public class MongoBuildWrapper extends BuildWrapper {
             save();
         }
 
+        public static FormValidation doCheckStartTimeout(@QueryParameter String value) {
+        	if(isEmpty(value)) {
+        		return FormValidation.ok();
+        	}
+        	
+        	try {
+        		int timeout = Integer.parseInt(value);
+        		return timeout>0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
+        	} catch (NumberFormatException e) {
+        		return FormValidation.error(MongoDB_InvalidStartTimeout());
+        	}
+        }
+        
         public static FormValidation doCheckPort(@QueryParameter String value) {
             return isPortNumber(value) ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidPortNumber());
         }
@@ -293,4 +365,11 @@ public class MongoBuildWrapper extends BuildWrapper {
             return m;
         }
     }
+    
+    private static class IsAbsoluteCheck implements FileCallable<Boolean> {
+
+		public Boolean invoke(File f, VirtualChannel channel){
+			return f.isAbsolute();
+		}
+	}
 }

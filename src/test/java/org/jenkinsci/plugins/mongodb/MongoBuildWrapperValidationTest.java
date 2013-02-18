@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.mongodb;
 
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
 import static org.junit.Assert.assertEquals;
@@ -25,6 +26,41 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Enclosed.class)
 public class MongoBuildWrapperValidationTest {
 
+	@RunWith(Parameterized.class)
+	public static class CheckStartTimeout {
+		
+		private String inputValue;
+		private Kind expectedKind;
+		private String expectedMessage;
+		
+		public CheckStartTimeout(String inputValue, Kind expectedKind, String expectedMessage) {
+			this.inputValue = inputValue;
+			this.expectedKind = expectedKind;
+			this.expectedMessage = expectedMessage;
+		}
+		
+		@Test
+		public void test() {
+			FormValidation actual = MongoBuildWrapper.DescriptorImpl.doCheckStartTimeout(inputValue);
+			assertEquals(expectedKind, actual.kind);
+			assertEquals(expectedMessage, actual.getMessage());
+		}
+		
+		@Parameters
+		public static Collection<Object[]> data() {
+			return Arrays.asList(
+					ok(""),
+					ok("27017"),
+					ok("65535"),
+					error(MongoDB_InvalidStartTimeout(),"0"),
+					error(MongoDB_InvalidStartTimeout(), "a"),
+					error(MongoDB_InvalidStartTimeout(), "-1"),					
+					error(MongoDB_InvalidStartTimeout(), "100.0"),
+					error(MongoDB_InvalidStartTimeout(), "100,0")
+					);
+		}
+	}
+	
     @RunWith(Parameterized.class)
     public static class CheckPort {
 

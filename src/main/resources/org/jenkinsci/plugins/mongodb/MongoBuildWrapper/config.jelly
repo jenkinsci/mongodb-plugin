@@ -8,4 +8,10 @@
   <f:entry title="${%Port}" field="port">
     <f:textbox />
   </f:entry>
+  <f:entry title="Startup Parameters" field="parameters">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="Start timeout" field="startTimeout">
+    <f:textbox />
+  </f:entry>
 </j:jelly>
