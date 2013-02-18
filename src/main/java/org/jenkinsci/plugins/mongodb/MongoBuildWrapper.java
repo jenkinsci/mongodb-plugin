@@ -179,13 +179,7 @@ public class MongoBuildWrapper extends BuildWrapper {
             dbpathFile = workspace.child("data").child("db");
         } else {
             dbpathFile = new FilePath(launcher.getChannel(),dbpath);
-            boolean isAbsolute = dbpathFile.act(new FileCallable<Boolean>() {
-
-				public Boolean invoke(File f, VirtualChannel channel){
-					return f.isAbsolute();
-				}
-			});
-            
+            boolean isAbsolute = dbpathFile.act(new IsAbsoluteCheck());
             if (!isAbsolute) {
                 dbpathFile = workspace.child(dbpath);
             }
@@ -371,4 +365,11 @@ public class MongoBuildWrapper extends BuildWrapper {
             return m;
         }
     }
+    
+    private static class IsAbsoluteCheck implements FileCallable<Boolean> {
+
+		public Boolean invoke(File f, VirtualChannel channel){
+			return f.isAbsolute();
+		}
+	}
 }
