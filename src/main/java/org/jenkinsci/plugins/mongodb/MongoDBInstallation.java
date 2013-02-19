@@ -141,7 +141,7 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         	
         	try {
         		int timeout = Integer.parseInt(value);
-        		return timeout>0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
+        		return timeout>=0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
         	} catch (NumberFormatException e) {
         		return FormValidation.error(MongoDB_InvalidStartTimeout());
         	}

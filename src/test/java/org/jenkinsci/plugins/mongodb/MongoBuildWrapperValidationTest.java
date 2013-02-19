@@ -52,7 +52,7 @@ public class MongoBuildWrapperValidationTest {
 					ok(""),
 					ok("27017"),
 					ok("65535"),
-					error(MongoDB_InvalidStartTimeout(),"0"),
+					ok("0"),
 					error(MongoDB_InvalidStartTimeout(), "a"),
 					error(MongoDB_InvalidStartTimeout(), "-1"),					
 					error(MongoDB_InvalidStartTimeout(), "100.0"),
