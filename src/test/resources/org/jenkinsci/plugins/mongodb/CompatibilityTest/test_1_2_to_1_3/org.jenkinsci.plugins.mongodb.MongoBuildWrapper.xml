@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<org.jenkinsci.plugins.mongodb.MongoBuildWrapper_-DescriptorImpl>
+    <installations>
+        <org.jenkinsci.plugins.mongodb.MongoDBInstallation>
+            <name>hello</name>
+            <home></home>
+            <properties>
+                <hudson.tools.InstallSourceProperty>
+                    <installers>
+                        <org.jenkinsci.plugins.mongodb.MongoDBInstaller>
+                            <id>osx-i386-0.8.0</id>
+                        </org.jenkinsci.plugins.mongodb.MongoDBInstaller>
+                    </installers>
+                </hudson.tools.InstallSourceProperty>
+            </properties>
+        </org.jenkinsci.plugins.mongodb.MongoDBInstallation>
+    </installations>
+</org.jenkinsci.plugins.mongodb.MongoBuildWrapper_-DescriptorImpl>

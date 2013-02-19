@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+    <actions/>
+    <description></description>
+    <keepDependencies>false</keepDependencies>
+    <properties/>
+    <scm class="hudson.scm.NullSCM"/>
+    <canRoam>true</canRoam>
+    <disabled>false</disabled>
+    <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+    <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+    <triggers class="vector"/>
+    <concurrentBuild>false</concurrentBuild>
+    <builders>
+        <hudson.tasks.Shell>
+            <command>mongo &lt;&lt; EOF
+                show dbs
+                use hello
+                db.person.save({name:&apos;kiy0taka&apos;})
+                db.person.find()
+                show dbs
+                EOF</command>
+        </hudson.tasks.Shell>
+    </builders>
+    <publishers/>
+    <buildWrappers>
+        <org.jenkinsci.plugins.mongodb.MongoBuildWrapper>
+            <mongodbName>mongo</mongodbName>
+            <dbpath>data</dbpath>
+            <port>10000</port>
+        </org.jenkinsci.plugins.mongodb.MongoBuildWrapper>
+    </buildWrappers>
+</project>
