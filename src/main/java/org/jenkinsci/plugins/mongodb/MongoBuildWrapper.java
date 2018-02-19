@@ -46,15 +46,15 @@ public class MongoBuildWrapper extends BuildWrapper {
 	private String parameters;
 	private int startTimeout;
 
-	public MongoBuildWrapper() {}
+    public MongoBuildWrapper() {}
 
     @DataBoundConstructor
     public MongoBuildWrapper(String mongodbName, String dbpath, String port, String parameters, int startTimeout) {
         this.mongodbName = mongodbName;
         this.dbpath = dbpath;
         this.port = port;
-        this.startTimeout = startTimeout;
-        this.parameters = parameters;
+		this.startTimeout = startTimeout;
+		this.parameters = parameters;
     }
 
     public MongoDBInstallation getMongoDB() {
@@ -91,7 +91,7 @@ public class MongoBuildWrapper extends BuildWrapper {
     }
 
     public String getParameters() {
-    	return parameters;
+		return parameters;
 	}
 
 	public void setParameters(String parameters) {
@@ -100,7 +100,6 @@ public class MongoBuildWrapper extends BuildWrapper {
 
 	/**
 	 * The time (in milliseconds) to wait for mongodb to start
-	 * 
 	 * @return time in milliseconds
 	 */
 	public int getStartTimeout() {
@@ -116,33 +115,33 @@ public class MongoBuildWrapper extends BuildWrapper {
 
         EnvVars env = build.getEnvironment(listener);
 
-        MongoDBInstallation mongo = getMongoDB().forNode(Computer.currentComputer().getNode(), listener)
+        MongoDBInstallation mongo = getMongoDB()
+                .forNode(Computer.currentComputer().getNode(), listener)
                 .forEnvironment(env);
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
         String globalParameters = mongo.getParameters();
         int globalStartTimeout = mongo.getStartTimeout();
-        final FilePath dbpathFile = setupCmd(launcher, args, build.getWorkspace(), false, globalParameters);
+        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false, globalParameters);
 
-        dbpathFile.deleteRecursive();
-        dbpathFile.mkdirs();
+    	dbpathFile.deleteRecursive();
+    	dbpathFile.mkdirs();
         return launch(launcher, args, listener, globalStartTimeout);
     }
 
-    protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener,
-            int globalStartTimeout) throws IOException, InterruptedException {
+    protected Environment launch(final Launcher launcher, ArgumentListBuilder args, final BuildListener listener, int globalStartTimeout) throws IOException, InterruptedException {
         ProcStarter procStarter = launcher.launch().cmds(args);
-        log(listener, "Executing mongodb start command: " + procStarter.cmds());
-        final Proc proc = procStarter.start();
+        log(listener, "Executing mongodb start command: "+procStarter.cmds());
+		final Proc proc = procStarter.start();
 
         try {
-
-            int effectiveTimeout = globalStartTimeout;
+        	
+        	int effectiveTimeout = globalStartTimeout;
             if (startTimeout > 0) {
-                effectiveTimeout = startTimeout;
-            }
-
+        		effectiveTimeout = startTimeout;
+        	}
+        	
             Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port, effectiveTimeout));
-            if (!startResult) {
+            if(!startResult) {
                 log(listener, "ERROR: Failed to start mongodb");
             }
         } catch (Exception e) {
@@ -165,11 +164,10 @@ public class MongoBuildWrapper extends BuildWrapper {
         };
     }
 
-    protected FilePath setupCmd(Launcher launcher, ArgumentListBuilder args, FilePath workspace, boolean fork,
-            String globalParameters) throws IOException, InterruptedException {
+    protected FilePath setupCmd(Launcher launcher, ArgumentListBuilder args, FilePath workspace, boolean fork, String globalParameters) throws IOException, InterruptedException {
 
         if (fork) {
-            args.add("--fork");
+        	args.add("--fork");
         }
         args.add("--logpath").add(workspace.child("mongodb.log").getRemote());
 
@@ -177,13 +175,13 @@ public class MongoBuildWrapper extends BuildWrapper {
         if (isEmpty(dbpath)) {
             dbpathFile = workspace.child("data").child("db");
         } else {
-            dbpathFile = new FilePath(launcher.getChannel(), dbpath);
+            dbpathFile = new FilePath(launcher.getChannel(),dbpath);
             boolean isAbsolute = dbpathFile.act(new IsAbsoluteCheck());
             if (!isAbsolute) {
                 dbpathFile = workspace.child(dbpath);
             }
         }
-
+        
         args.add("--dbpath").add(dbpathFile.getRemote());
 
         if (StringUtils.isNotEmpty(port)) {
@@ -191,12 +189,12 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
         String effectiveParameters = globalParameters;
         if (StringUtils.isNotEmpty(parameters)) {
-            effectiveParameters = parameters;
+        	effectiveParameters = parameters;
         }
-
+        
         if (StringUtils.isNotEmpty(effectiveParameters)) {
-            for (String parameter : effectiveParameters.split("--")) {
-
+        	for (String parameter : effectiveParameters.split("--")) {
+            	
                 if (parameter.trim().indexOf(" ") != -1) {
                     // The parameter is a name value pair e.g. --syncdelay 0
                     // The construction is done this way so the case where the value is in quotes
