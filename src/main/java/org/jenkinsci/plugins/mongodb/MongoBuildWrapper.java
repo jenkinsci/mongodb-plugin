@@ -43,11 +43,10 @@ public class MongoBuildWrapper extends BuildWrapper {
     private String mongodbName;
     private String dbpath;
     private String port;
-    private String parameters;
-    private int startTimeout;
+	private String parameters;
+	private int startTimeout;
 
-    public MongoBuildWrapper() {
-    }
+	public MongoBuildWrapper() {}
 
     @DataBoundConstructor
     public MongoBuildWrapper(String mongodbName, String dbpath, String port, String parameters, int startTimeout) {
@@ -92,29 +91,28 @@ public class MongoBuildWrapper extends BuildWrapper {
     }
 
     public String getParameters() {
-        return parameters;
-    }
+    	return parameters;
+	}
 
-    public void setParameters(String parameters) {
-        this.parameters = parameters;
-    }
+	public void setParameters(String parameters) {
+		this.parameters = parameters;
+	}
 
-    /**
-     * The time (in milliseconds) to wait for mongodb to start
-     * 
-     * @return time in milliseconds
-     */
-    public int getStartTimeout() {
-        return startTimeout;
-    }
+	/**
+	 * The time (in milliseconds) to wait for mongodb to start
+	 * 
+	 * @return time in milliseconds
+	 */
+	public int getStartTimeout() {
+		return startTimeout;
+	}
 
-    public void setStartTimeout(int startTimeout) {
-        this.startTimeout = startTimeout;
-    }
+	public void setStartTimeout(int startTimeout) {
+		this.startTimeout = startTimeout;
+	}
 
-    @Override
-    public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener)
-            throws IOException, InterruptedException {
+	@Override
+    public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         EnvVars env = build.getEnvironment(listener);
 
