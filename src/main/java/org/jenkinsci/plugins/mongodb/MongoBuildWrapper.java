@@ -2,17 +2,9 @@ package org.jenkinsci.plugins.mongodb;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
-import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
-
-import java.io.File;
-import java.io.IOException;
-
-import org.apache.commons.lang.StringUtils;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -25,9 +17,9 @@ import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Launcher.ProcStarter;
 import hudson.Proc;
+import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
 import hudson.model.Computer;
 import hudson.remoting.Callable;
 import hudson.remoting.VirtualChannel;
@@ -36,7 +28,16 @@ import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+
+import java.io.File;
+import java.io.IOException;
+
 import net.sf.json.JSONObject;
+
+import org.apache.commons.lang.StringUtils;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 public class MongoBuildWrapper extends BuildWrapper {
 
@@ -116,8 +117,8 @@ public class MongoBuildWrapper extends BuildWrapper {
         EnvVars env = build.getEnvironment(listener);
 
         MongoDBInstallation mongo = getMongoDB()
-                .forNode(Computer.currentComputer().getNode(), listener)
-                .forEnvironment(env);
+            .forNode(Computer.currentComputer().getNode(), listener)
+            .forEnvironment(env);
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
         String globalParameters = mongo.getParameters();
         int globalStartTimeout = mongo.getStartTimeout();
@@ -136,7 +137,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         try {
         	
         	int effectiveTimeout = globalStartTimeout;
-            if (startTimeout > 0) {
+        	if(startTimeout>0) {
         		effectiveTimeout = startTimeout;
         	}
         	
@@ -194,24 +195,22 @@ public class MongoBuildWrapper extends BuildWrapper {
         
         if (StringUtils.isNotEmpty(effectiveParameters)) {
         	for (String parameter : effectiveParameters.split("--")) {
-            	
-                if (parameter.trim().indexOf(" ") != -1) {
-                    // The parameter is a name value pair e.g. --syncdelay 0
-                    // The construction is done this way so the case where the value is in quotes
-                    // and possibly contains
-                    // space chars is properly handled
-                    String parameterName = parameter.trim().substring(0, parameter.trim().indexOf(" ")).trim();
-                    String parameterValue = parameter.trim().substring(parameter.trim().indexOf(" ")).trim();
-                    if (StringUtils.isNotEmpty(parameterName)) {
-                        args.add("--" + parameterName, parameterValue);
-                    }
-                } else {
-                    // No value parameter e.g. --noprealloc
-                    if (StringUtils.isNotEmpty(parameter.trim())) {
-                        args.add("--" + parameter.trim());
-                    }
-                }
-            }
+        		
+        		if(parameter.trim().indexOf(" ")!=-1) {
+        			//The parameter is a name value pair e.g. --syncdelay 0
+        			// The construction is done this way so the case where the value is in quotes and possibly contains space chars is properly handled 
+        			String parameterName = parameter.trim().substring(0, parameter.trim().indexOf(" ")).trim();
+        			String parameterValue = parameter.trim().substring(parameter.trim().indexOf(" ")).trim();
+        			if(StringUtils.isNotEmpty(parameterName)) {
+        				args.add("--"+parameterName, parameterValue);
+        			}
+        		} else {
+        			//No value parameter e.g. --noprealloc
+        			if(StringUtils.isNotEmpty(parameter.trim())) {
+        				args.add("--"+parameter.trim());
+        			}
+        		}
+			}
         }
 
         return dbpathFile;
@@ -223,19 +222,19 @@ public class MongoBuildWrapper extends BuildWrapper {
 
     private static class WaitForStartCommand implements Callable<Boolean, Exception> {
 
-        private final BuildListener listener;
+        private BuildListener listener;
 
-        private final String port;
+        private String port;
 
-        private int startTimeout;
+		private int startTimeout;
 
         public WaitForStartCommand(BuildListener listener, String port, int startTimeout) {
             this.listener = listener;
             this.port = StringUtils.defaultIfEmpty(port, "27017");
-            if (startTimeout == 0) {
-                this.startTimeout = 15000;
+            if(startTimeout == 0) {
+            	this.startTimeout = 15000;
             } else {
-                this.startTimeout = startTimeout;
+            	this.startTimeout = startTimeout;
             }
         }
 
@@ -285,8 +284,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         @Override
-        public BuildWrapper newInstance(StaplerRequest req, JSONObject formData)
-                throws hudson.model.Descriptor.FormException {
+        public BuildWrapper newInstance(StaplerRequest req, JSONObject formData) throws hudson.model.Descriptor.FormException {
             return req.bindJSON(clazz, formData);
         }
 
@@ -300,35 +298,32 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public static FormValidation doCheckStartTimeout(@QueryParameter String value) {
-            if (isEmpty(value)) {
-                return FormValidation.ok();
-            }
-
-            try {
-                int timeout = Integer.parseInt(value);
-                return timeout >= 0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
-            } catch (NumberFormatException e) {
-                return FormValidation.error(MongoDB_InvalidStartTimeout());
-            }
+        	if(isEmpty(value)) {
+        		return FormValidation.ok();
+        	}
+        	
+        	try {
+        		int timeout = Integer.parseInt(value);
+        		return timeout>=0 ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidStartTimeout());
+        	} catch (NumberFormatException e) {
+        		return FormValidation.error(MongoDB_InvalidStartTimeout());
+        	}
         }
-
+        
         public static FormValidation doCheckPort(@QueryParameter String value) {
             return isPortNumber(value) ? FormValidation.ok() : FormValidation.error(MongoDB_InvalidPortNumber());
         }
 
         public static FormValidation doCheckDbpath(@QueryParameter String value) {
-            if (isEmpty(value)) {
+            if (isEmpty(value))
                 return FormValidation.ok();
-            }
 
             File file = new File(value);
-            if (!file.isDirectory()) {
+            if (!file.isDirectory())
                 return FormValidation.error(MongoDB_NotDirectory());
-            }
 
-            if (file.list().length > 0) {
+            if (file.list().length > 0)
                 return FormValidation.warning(MongoDB_NotEmptyDirectory());
-            }
 
             return FormValidation.ok();
         }
@@ -352,11 +347,11 @@ public class MongoBuildWrapper extends BuildWrapper {
             return m;
         }
     }
-
+    
     private static class IsAbsoluteCheck implements FileCallable<Boolean> {
 
-        public Boolean invoke(File f, VirtualChannel channel) {
-            return f.isAbsolute();
-        }
-    }
+		public Boolean invoke(File f, VirtualChannel channel){
+			return f.isAbsolute();
+		}
+	}
 }
