@@ -145,7 +145,7 @@ public class MongoBuildWrapper extends BuildWrapper {
 			
 			Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port, effectiveTimeout));
 			if (!startResult) {
-				log(listener, "ERROR: Filed to start mongodb");
+				log(listener, "ERROR: Failed to start mongodb");
 			}
 		} catch (Exception e) {
 			e.printStackTrace(listener.getLogger());
@@ -249,10 +249,12 @@ public class MongoBuildWrapper extends BuildWrapper {
 		protected boolean waitForStart() throws Exception {
 			log(listener, "Starting...");
 			MongoClient mongo = null;
+			String address = "localhost:" + port;
 			try {
 				MongoClientOptions options = MongoClientOptions.builder().serverSelectionTimeout(startTimeout).build();
-				mongo = new MongoClient("localhost:" + port, options);
+				mongo = new MongoClient(address, options);
 				mongo.listDatabaseNames().first();
+				log(listener, "Server ready at " + address);
 				return true;
 			} catch (Exception e) {
 				throw e;
