@@ -8,13 +8,11 @@ import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
-import com.thoughtworks.xstream.MarshallingStrategy;
 
 import hudson.CopyOnWrite;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Launcher.ProcStarter;
 import hudson.Proc;
@@ -22,7 +20,7 @@ import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
-import hudson.remoting.Callable;
+import hudson.model.Node;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
@@ -34,6 +32,7 @@ import jenkins.security.MasterToSlaveCallable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 
 import net.sf.json.JSONObject;
 
@@ -118,14 +117,24 @@ public class MongoBuildWrapper extends BuildWrapper {
     public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         EnvVars env = build.getEnvironment(listener);
+        
+        Computer computer = Computer.currentComputer();
+        Node node = computer != null ? computer.getNode() : null;
+        
+        MongoDBInstallation installation = getMongoDB();
+        if(installation == null) {
+        	throw new IOException("No MongoDB installation available");
+        }
 
-        MongoDBInstallation mongo = getMongoDB()
-            .forNode(Computer.currentComputer().getNode(), listener)
-            .forEnvironment(env);
+        MongoDBInstallation mongo = installation.forNode(node, listener).forEnvironment(env);
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
         String globalParameters = mongo.getParameters();
         int globalStartTimeout = mongo.getStartTimeout();
-        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false, globalParameters);
+        FilePath workspace = build.getWorkspace();
+        if(workspace == null) {
+        	throw new IOException("No Workspace available");
+        }
+        final FilePath dbpathFile = setupCmd(launcher,args, workspace, false, globalParameters);
 
     	dbpathFile.deleteRecursive();
     	dbpathFile.mkdirs();
@@ -292,11 +301,11 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public MongoDBInstallation[] getInstallations() {
-            return installations;
+        	return Arrays.copyOf(installations, installations.length);
         }
 
         public void setInstallations(MongoDBInstallation[] installations) {
-            this.installations = installations;
+            this.installations = Arrays.copyOf(installations, installations.length);
             save();
         }
 
@@ -325,7 +334,8 @@ public class MongoBuildWrapper extends BuildWrapper {
             if (!file.isDirectory())
                 return FormValidation.error(MongoDB_NotDirectory());
 
-            if (file.list().length > 0)
+            String[] fileList = file.list();
+            if (fileList != null && fileList.length > 0)
                 return FormValidation.warning(MongoDB_NotEmptyDirectory());
 
             return FormValidation.ok();

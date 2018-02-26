@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>mongodb</artifactId>
-  <version>1.4-SNAPSHOT</version>
+  <version>1.4</version>
   <packaging>hpi</packaging>
   <name>Jenkins MongoDB Plugin</name>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/MongoDB+Plugin</url>
@@ -55,6 +55,7 @@
   <scm>
     <connection>scm:git:git@github.com:jenkinsci/mongodb-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/mongodb-plugin.git</developerConnection>
+    <tag>mongodb-1.4</tag>
   </scm>
 
 </project>
