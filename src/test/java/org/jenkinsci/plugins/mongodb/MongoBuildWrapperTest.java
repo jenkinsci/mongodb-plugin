@@ -4,6 +4,9 @@ import static java.lang.String.format;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.remoting.Callable;
@@ -31,7 +34,7 @@ public class MongoBuildWrapperTest {
 	private VirtualChannel mockChannel;
 
     @Before
-    public void init() {
+    public void init() throws IOException {
         workspace = new FilePath(tempFolder.newFolder("workspace"));
         mockLauncher = mock(Launcher.class);
         mockChannel = mock(VirtualChannel.class);

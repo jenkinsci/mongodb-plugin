@@ -1,32 +1,34 @@
 package org.jenkinsci.plugins.mongodb;
 
 import hudson.model.FreeStyleProject;
-import org.jvnet.hudson.test.HudsonTestCase;
+
+import org.junit.Assert;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.recipes.LocalData;
 
 /**
  * @author Kiyotaka Oku
  */
-public class CompatibilityTest extends HudsonTestCase {
+public class CompatibilityTest extends JenkinsRule {
 
     @LocalData
     public void test_1_2_to_1_3() {
 
-        MongoDBInstallation[] installations = hudson.getDescriptorByType(MongoDBInstallation.DescriptorImpl.class).getInstallations();
-        assertEquals(1, installations.length);
+        MongoDBInstallation[] installations = jenkins.getDescriptorByType(MongoDBInstallation.DescriptorImpl.class).getInstallations();
+        Assert.assertEquals(1, installations.length);
 
         MongoDBInstallation inst = installations[0];
-        assertEquals(null, inst.getParameters());
-        assertEquals(0, inst.getStartTimeout());
+        Assert.assertEquals(null, inst.getParameters());
+        Assert.assertEquals(0, inst.getStartTimeout());
 
-        FreeStyleProject job = (FreeStyleProject) hudson.getItem("test");
-        MongoBuildWrapper wrapper = (MongoBuildWrapper) job.getBuildWrappers().get(hudson.getDescriptor(MongoBuildWrapper.class));
+        FreeStyleProject job = (FreeStyleProject) jenkins.getItem("test");
+        MongoBuildWrapper wrapper = (MongoBuildWrapper) job.getBuildWrappers().get(jenkins.getDescriptor(MongoBuildWrapper.class));
 
-        assertNotNull(wrapper);
-        assertEquals("mongo", wrapper.getMongodbName());
-        assertEquals("data", wrapper.getDbpath());
-        assertEquals("10000", wrapper.getPort());
-        assertNull(wrapper.getParameters());
-        assertEquals(0, wrapper.getStartTimeout());
+        Assert.assertNotNull(wrapper);
+        Assert.assertEquals("mongo", wrapper.getMongodbName());
+        Assert.assertEquals("data", wrapper.getDbpath());
+        Assert.assertEquals("10000", wrapper.getPort());
+        Assert.assertNull(wrapper.getParameters());
+        Assert.assertEquals(0, wrapper.getStartTimeout());
     }
 }

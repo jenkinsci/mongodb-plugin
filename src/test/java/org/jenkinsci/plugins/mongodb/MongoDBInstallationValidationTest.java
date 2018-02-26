@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.mongodb;
 
-import static org.jenkinsci.plugins.mongodb.MongoDBInstallation.DescriptorImpl.doCheckHome;
 import static org.junit.Assert.assertEquals;
 import static org.jenkinsci.plugins.mongodb.Messages.*;
 import hudson.util.FormValidation;
@@ -24,23 +23,25 @@ public class MongoDBInstallationValidationTest {
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
+    
+    private MongoDBInstallation.DescriptorImpl descr = new MongoDBInstallation.DescriptorImpl();
 
     @Test
     public void doCheckHome_Empty() {
-        assertEquals(Kind.OK, doCheckHome(new File("")).kind);
+        assertEquals(Kind.OK, descr.doCheckHome(new File("")).kind);
     }
 
     @Test
     public void doCheckHome_File() throws IOException {
-        FormValidation actual = doCheckHome(tempFolder.newFile("file"));
+        FormValidation actual = descr.doCheckHome(tempFolder.newFile("file"));
         assertEquals(Kind.ERROR, actual.kind);
         assertEquals(MongoDB_NotDirectory(), actual.getMessage());
     }
 
     @Test
-    public void doCheckHome_Not_MongoDB_Home() {
+    public void doCheckHome_Not_MongoDB_Home() throws IOException {
         File value = tempFolder.newFolder("folder");
-        FormValidation actual = doCheckHome(value);
+        FormValidation actual = descr.doCheckHome(value);
         assertEquals(Kind.ERROR, actual.kind);
         assertEquals(MongoDB_NotMongoDBDirectory(value), actual.getMessage());
     }
@@ -51,7 +52,7 @@ public class MongoDBInstallationValidationTest {
         new File(value, "bin").mkdir();
         new File(value, "bin/mongod").createNewFile();
 
-        FormValidation actual = doCheckHome(value);
+        FormValidation actual = descr.doCheckHome(value);
         assertEquals(Kind.OK, actual.kind);
     }
     

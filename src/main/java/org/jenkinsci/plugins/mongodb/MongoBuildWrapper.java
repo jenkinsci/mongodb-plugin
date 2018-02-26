@@ -1,16 +1,18 @@
 package org.jenkinsci.plugins.mongodb;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
-import static org.apache.commons.lang.StringUtils.isNotEmpty;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidPortNumber;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_NotEmptyDirectory;
 import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout;
+
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+
 import hudson.CopyOnWrite;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Launcher.ProcStarter;
 import hudson.Proc;
@@ -18,25 +20,23 @@ import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
-import hudson.remoting.Callable;
+import hudson.model.Node;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import jenkins.MasterToSlaveFileCallable;
+import jenkins.security.MasterToSlaveCallable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.util.Arrays;
 
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.math.NumberUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -117,14 +117,24 @@ public class MongoBuildWrapper extends BuildWrapper {
     public Environment setUp(AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         EnvVars env = build.getEnvironment(listener);
+        
+        Computer computer = Computer.currentComputer();
+        Node node = computer != null ? computer.getNode() : null;
+        
+        MongoDBInstallation installation = getMongoDB();
+        if(installation == null) {
+        	throw new IOException("No MongoDB installation available");
+        }
 
-        MongoDBInstallation mongo = getMongoDB()
-            .forNode(Computer.currentComputer().getNode(), listener)
-            .forEnvironment(env);
+        MongoDBInstallation mongo = installation.forNode(node, listener).forEnvironment(env);
         ArgumentListBuilder args = new ArgumentListBuilder().add(mongo.getExecutable(launcher));
         String globalParameters = mongo.getParameters();
         int globalStartTimeout = mongo.getStartTimeout();
-        final FilePath dbpathFile = setupCmd(launcher,args, build.getWorkspace(), false, globalParameters);
+        FilePath workspace = build.getWorkspace();
+        if(workspace == null) {
+        	throw new IOException("No Workspace available");
+        }
+        final FilePath dbpathFile = setupCmd(launcher,args, workspace, false, globalParameters);
 
     	dbpathFile.deleteRecursive();
     	dbpathFile.mkdirs();
@@ -145,7 +155,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         	
             Boolean startResult = launcher.getChannel().call(new WaitForStartCommand(listener, port, effectiveTimeout));
             if(!startResult) {
-                log(listener, "ERROR: Filed to start mongodb");
+                log(listener, "ERROR: Failed to start mongodb");
             }
         } catch (Exception e) {
             e.printStackTrace(listener.getLogger());
@@ -222,15 +232,13 @@ public class MongoBuildWrapper extends BuildWrapper {
         listener.getLogger().println(String.format("[MongoDB] %s", log));
     }
 
-    private static class WaitForStartCommand implements Callable<Boolean, Exception> {
+    private static class WaitForStartCommand extends MasterToSlaveCallable<Boolean, Exception> {
 
         private BuildListener listener;
 
         private String port;
 
 		private int startTimeout;
-
-		private long waitStart;
 
         public WaitForStartCommand(BuildListener listener, String port, int startTimeout) {
             this.listener = listener;
@@ -243,39 +251,25 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public Boolean call() throws Exception {
-        	waitStart = System.currentTimeMillis();
             return waitForStart();
         }
 
         protected boolean waitForStart() throws Exception {
             log(listener, "Starting...");
-            HttpURLConnection conn = null;
+            MongoClient mongo = null;
+            String address = "localhost:" + port;
             try {
-                conn = (HttpURLConnection) new URL("http://localhost:" + port).openConnection();
-                if (conn.getResponseCode() == 200) {
-                    log(listener, "MongoDB running at:"+new URL("http://localhost:" + port).toString());
-                    return true;
-                } else {
-                    return false;
-                }
-            } catch (MalformedURLException e) {
-                throw e;
-            } catch (ConnectException e) {
-                try {
-                    if (startTimeout>=System.currentTimeMillis()-waitStart) {
-                        Thread.sleep(1000);
-                        return waitForStart();
-                    } else {
-                        return false;
-                    }
-                } catch (InterruptedException e1) {
-                    throw e;
-                }
-            } catch (IOException e) {
+                MongoClientOptions options = MongoClientOptions.builder().serverSelectionTimeout(startTimeout).build();
+                mongo = new MongoClient(address, options);
+                mongo.listDatabaseNames().first();
+                log(listener, "Server ready at " + address);
+                return true;
+            } catch (Exception e) {
                 throw e;
             } finally {
-                if (conn != null)
-                    conn.disconnect();
+                if (mongo != null) {
+                    mongo.close();
+                }
             }
         }
     }
@@ -307,11 +301,11 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
 
         public MongoDBInstallation[] getInstallations() {
-            return installations;
+        	return Arrays.copyOf(installations, installations.length);
         }
 
         public void setInstallations(MongoDBInstallation[] installations) {
-            this.installations = installations;
+            this.installations = Arrays.copyOf(installations, installations.length);
             save();
         }
 
@@ -340,7 +334,8 @@ public class MongoBuildWrapper extends BuildWrapper {
             if (!file.isDirectory())
                 return FormValidation.error(MongoDB_NotDirectory());
 
-            if (file.list().length > 0)
+            String[] fileList = file.list();
+            if (fileList != null && fileList.length > 0)
                 return FormValidation.warning(MongoDB_NotEmptyDirectory());
 
             return FormValidation.ok();
@@ -366,7 +361,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
     }
     
-    private static class IsAbsoluteCheck implements FileCallable<Boolean> {
+    private static class IsAbsoluteCheck extends MasterToSlaveFileCallable<Boolean> {
 
 		public Boolean invoke(File f, VirtualChannel channel){
 			return f.isAbsolute();
