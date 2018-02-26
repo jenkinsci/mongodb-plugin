@@ -102,7 +102,7 @@ public class MongoBuildWrapperValidationTest {
         public TemporaryFolder tmpFolder = new TemporaryFolder();
 
         @Test
-        public void empty_directory() {
+        public void empty_directory() throws IOException {
             File file = tmpFolder.newFolder("foo");
             FormValidation actual = MongoBuildWrapper.DescriptorImpl.doCheckDbpath(file.getAbsolutePath());
             assertEquals(Kind.OK, actual.kind);

@@ -8,6 +8,7 @@ import static org.jenkinsci.plugins.mongodb.Messages.MongoDB_InvalidStartTimeout
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
+import com.thoughtworks.xstream.MarshallingStrategy;
 
 import hudson.CopyOnWrite;
 import hudson.EnvVars;
@@ -28,6 +29,8 @@ import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import jenkins.MasterToSlaveFileCallable;
+import jenkins.security.MasterToSlaveCallable;
 
 import java.io.File;
 import java.io.IOException;
@@ -220,7 +223,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         listener.getLogger().println(String.format("[MongoDB] %s", log));
     }
 
-    private static class WaitForStartCommand implements Callable<Boolean, Exception> {
+    private static class WaitForStartCommand extends MasterToSlaveCallable<Boolean, Exception> {
 
         private BuildListener listener;
 
@@ -348,7 +351,7 @@ public class MongoBuildWrapper extends BuildWrapper {
         }
     }
     
-    private static class IsAbsoluteCheck implements FileCallable<Boolean> {
+    private static class IsAbsoluteCheck extends MasterToSlaveFileCallable<Boolean> {
 
 		public Boolean invoke(File f, VirtualChannel channel){
 			return f.isAbsolute();

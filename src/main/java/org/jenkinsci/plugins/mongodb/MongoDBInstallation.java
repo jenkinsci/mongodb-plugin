@@ -21,6 +21,7 @@ import hudson.tools.ToolPropertyDescriptor;
 import hudson.tools.ToolInstallation;
 import hudson.util.DescribableList;
 import hudson.util.FormValidation;
+import jenkins.security.MasterToSlaveCallable;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -72,7 +73,7 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
 
 
     public String getExecutable(final Launcher launcher) throws IOException, InterruptedException {
-        return launcher.getChannel().call(new Callable<String, IOException>() {
+        return launcher.getChannel().call(new MasterToSlaveCallable<String, IOException>() {
             public String call() throws IOException {
                 File homeDir = new File(getHome());
                 if (!(homeDir.exists() && homeDir.isDirectory())) {
@@ -129,8 +130,8 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
             Hudson.getInstance().getDescriptorByType(MongoBuildWrapper.DescriptorImpl.class).setInstallations(installations);
         }
 
-
-        public static FormValidation doCheckName(@QueryParameter String value) {
+        @Override
+        public FormValidation doCheckName(@QueryParameter String value) {
             return FormValidation.validateRequired(value);
         }
 		
@@ -147,7 +148,8 @@ public class MongoDBInstallation extends ToolInstallation implements Environment
         	}
 	    }
 
-        public static FormValidation doCheckHome(@QueryParameter File value) {
+        @Override
+        public FormValidation doCheckHome(@QueryParameter File value) {
             if (StringUtils.isEmpty(value.getPath()))
                 return FormValidation.ok();
 
